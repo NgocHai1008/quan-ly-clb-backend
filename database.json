@@ -1,0 +1,39 @@
+{
+  "users": [
+    {
+      "username": "admin",
+      "password": "123",
+      "name": "ADMIN",
+      "role": "admin",
+      "status": "active",
+      "avatar": "https://i.pravatar.cc/100?img=11"
+    },
+    
+    {
+      "username": "hailn",
+      "password": "123",
+      "name": "Lưu Ngọc Hải",
+      "role": "coach",
+      "status": "active",
+      "avatar": "https://i.pravatar.cc/100?img=24"
+    }
+  ],
+  "students": [
+    {
+      "id": 1765253795278,
+      "name": "Đỗ Anh Minh",
+      "tuition": false
+    }
+  ],
+  "posts": [],
+  "attendanceLogs": [
+    {
+      "records": [
+        {
+          "id": 1765253795278,
+          "status": "Đi học"
+        }
+      ]
+    }
+  ]
+}
