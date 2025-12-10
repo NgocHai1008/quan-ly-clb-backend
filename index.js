@@ -59,12 +59,10 @@ app.post('/api/tuition/remind', async (req, res) => {
     try {
         const { studentName, qrUrl, amount } = req.body; 
         
-        console.log(`🔔 Đang gửi QR cho: ${studentName}`);
-        
-        // --- SỰ KHÁC BIỆT LÀ Ở ĐÂY ---
-        // Code cũ: cố gắng JSON.parse(qrUrl) -> Gây lỗi
-        // Code mới: Lưu thẳng vào object như dưới đây:
-        
+        console.log(`🔔 Gửi thông báo cho: ${studentName}`);
+        console.log(`🔗 Link QR: ${qrUrl}`);
+
+        // FIX: Lưu trực tiếp qrUrl vào data, KHÔNG dùng JSON.parse
         const notificationData = { 
             qrUrl: qrUrl, 
             amount: amount 
@@ -75,14 +73,13 @@ app.post('/api/tuition/remind', async (req, res) => {
             type: 'tuition', 
             title: 'Thông báo đóng học phí', 
             message: `Phí ${parseInt(amount).toLocaleString('vi-VN')} VNĐ`, 
-            data: notificationData 
+            data: notificationData // Lưu object này vào DB
         }); 
         
         io.emit('new_notification', { targetUser: studentName }); 
         res.json({ success: true, message: "Đã gửi thông báo!" }); 
-
     } catch (e) {
-        console.error("Lỗi server:", e);
+        console.error("Lỗi gửi:", e);
         res.status(500).json({ success: false });
     }
 });
