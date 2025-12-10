@@ -145,11 +145,22 @@ app.post('/api/admin/import-members', async (req, res) => {
 // 🔥 API MỚI: LẤY CHI TIẾT HỌC VIÊN THEO ID (Để xem lịch sử đóng tiền)
 app.get('/api/students/:id', async (req, res) => {
     try {
-        const s = await Student.findOne({ id: req.params.id });
-        res.json(s || {});
-    } catch (e) { res.status(500).json({}); }
-});
+        // Ép kiểu String sang Number để tìm trong DB
+        const studentId = parseInt(req.params.id);
+        
+        if (isNaN(studentId)) {
+            return res.status(400).json({ message: "ID không hợp lệ" });
+        }
 
+        const s = await Student.findOne({ id: studentId });
+        
+        // Nếu không tìm thấy, trả về object rỗng để frontend không bị lỗi crash
+        res.json(s || { tuitionPaidMonths: [] });
+    } catch (e) { 
+        console.error("Lỗi lấy chi tiết học viên:", e);
+        res.status(500).json({ tuitionPaidMonths: [] }); 
+    }
+});
 
 // --- CÁC API KHÁC (GIỮ NGUYÊN) ---
 app.get('/api/chat', async (req, res) => res.json(await Message.find().sort({ createdAt: 1 })));
