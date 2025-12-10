@@ -157,32 +157,43 @@ app.post('/api/login', async (req, res) => { const user = await User.findOne({ u
 app.post('/api/register', async (req, res) => { if (await User.findOne({ username: req.body.username })) return res.status(400).json({ success: false, message: 'Trùng user' }); await User.create({ ...req.body, status: req.body.role === 'coach' ? 'pending' : 'active', avatar: `https://i.pravatar.cc/100?img=${Math.floor(Math.random() * 70)}` }); if (req.body.role === 'member') await Student.create({ id: Date.now(), name: req.body.name, tuitionPaidMonths: [] }); res.json({ success: true, message: 'Đăng ký thành công' }); });
 // 1. API THU TIỀN (Chỉ thêm tháng vào mảng, không trùng lặp)
 // 🔥 API GỬI THÔNG BÁO NHẮC NỢ (ĐÃ FIX LỖI MẤT QR)
-app.post('/api/tuition/remind', async (req, res) => { 
-    const { studentName, qrUrl, amount } = req.body; 
-    
-    // Mặc định: Coi qrUrl là một đường link ảnh -> lưu vào object data
-    let qrData = { qrUrl: qrUrl, amount: amount };
+app.post('/api/tuition', async (req, res) => { 
+    try {
+        const { id, month } = req.body; 
+        console.log(`💰 Yêu cầu thu tiền: ID=${id} (${typeof id}), Tháng=${month}`);
 
-    // Kiểm tra: Nếu qrUrl là chuỗi JSON (cách cũ), thì parse nó ra
-    if (typeof qrUrl === 'string' && qrUrl.trim().startsWith('{')) {
-        try { 
-            const parsed = JSON.parse(qrUrl);
-            qrData = parsed; // Sử dụng object đã parse
-        } catch (e) { 
-            console.log("QR không phải JSON, giữ nguyên dạng Link");
+        if (!id || !month) {
+            return res.status(400).json({ success: false, message: 'Thiếu thông tin.' });
         }
-    }
 
-    await Notification.create({ 
-        targetUser: studentName, 
-        type: 'tuition', 
-        title: 'Thông báo đóng học phí', 
-        message: `Phí ${parseInt(amount).toLocaleString('vi-VN')} VNĐ`, 
-        data: qrData // Lưu dữ liệu chuẩn để App Member hiển thị
-    }); 
-    
-    io.emit('new_notification', { targetUser: studentName }); 
-    res.json({ success: true, message: "Đã gửi thông báo!" }); 
+        // 1. Thử cập nhật với ID dạng SỐ (Number)
+        let result = await Student.updateOne(
+            { id: parseInt(id) }, 
+            { $addToSet: { tuitionPaidMonths: month } }
+        );
+
+        // 2. Nếu không tìm thấy ai (matchedCount == 0), thử cập nhật với ID dạng CHUỖI (String)
+        if (result.matchedCount === 0) {
+            console.log(`⚠️ Không tìm thấy ID dạng Số, đang thử ID dạng Chuỗi...`);
+            result = await Student.updateOne(
+                { id: String(id) }, 
+                { $addToSet: { tuitionPaidMonths: month } }
+            );
+        }
+
+        // Kiểm tra kết quả cuối cùng
+        if (result.matchedCount > 0) {
+            console.log(`✅ Đã xác nhận thu tiền thành công cho ID: ${id}`);
+            res.json({ success: true });
+        } else {
+            console.error(`❌ Không tìm thấy học viên nào có ID: ${id} để thu tiền.`);
+            res.status(404).json({ success: false, message: 'Không tìm thấy học viên.' });
+        }
+
+    } catch (e) {
+        console.error("🔥 Lỗi API Thu tiền:", e);
+        res.status(500).json({ success: false, message: 'Lỗi Server.' });
+    }
 });
 
 // 2. API LẤY CHI TIẾT HỌC VIÊN (Để xem lịch sử - Fix lỗi ID số/chuỗi)
