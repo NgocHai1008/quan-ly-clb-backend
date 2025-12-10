@@ -12,6 +12,8 @@ const PORT = process.env.PORT || 3000;
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
 
+
+
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
@@ -49,7 +51,14 @@ const AttendanceLog = mongoose.model('AttendanceLog', new mongoose.Schema({
 }));
 
 const Notification = mongoose.model('Notification', new mongoose.Schema({
-  targetUser: String, type: String, title: String, message: String, data: Object, isRead: { type: Boolean, default: false }, createdAt: { type: Date, default: Date.now }
+  targetUser: String, 
+  type: String, 
+  title: String, 
+  message: String, 
+  // 🔥 SỬA DÒNG NÀY: Dùng Mixed để lưu bất cứ cái gì (Chuỗi, Link, Object...)
+  data: { type: mongoose.Schema.Types.Mixed, default: {} }, 
+  isRead: { type: Boolean, default: false }, 
+  createdAt: { type: Date, default: Date.now }
 }));
 
 const Event = mongoose.model('Event', new mongoose.Schema({
