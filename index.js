@@ -156,13 +156,33 @@ app.post('/api/posts/:id/comment', async (req, res) => { const p = await Post.fi
 app.post('/api/login', async (req, res) => { const user = await User.findOne({ username: req.body.username, password: req.body.password }); if (!user) return res.status(401).json({ success: false, message: 'Sai thông tin' }); if (user.status === 'pending') return res.status(403).json({ success: false, message: 'Chờ duyệt' }); res.json({ success: true, user: { ...user._doc, password: '' } }); });
 app.post('/api/register', async (req, res) => { if (await User.findOne({ username: req.body.username })) return res.status(400).json({ success: false, message: 'Trùng user' }); await User.create({ ...req.body, status: req.body.role === 'coach' ? 'pending' : 'active', avatar: `https://i.pravatar.cc/100?img=${Math.floor(Math.random() * 70)}` }); if (req.body.role === 'member') await Student.create({ id: Date.now(), name: req.body.name, tuitionPaidMonths: [] }); res.json({ success: true, message: 'Đăng ký thành công' }); });
 // 1. API THU TIỀN (Chỉ thêm tháng vào mảng, không trùng lặp)
-app.post('/api/tuition', async (req, res) => { 
-    const { id, month } = req.body; 
-    if (!month) return res.status(400).json({ success: false, message: 'Thiếu thông tin tháng.' });
+// 🔥 API GỬI THÔNG BÁO NHẮC NỢ (ĐÃ FIX LỖI MẤT QR)
+app.post('/api/tuition/remind', async (req, res) => { 
+    const { studentName, qrUrl, amount } = req.body; 
     
-    // Dùng $addToSet để không bị trùng tháng nếu lỡ bấm 2 lần
-    await Student.updateOne({ id: id }, { $addToSet: { tuitionPaidMonths: month } }); 
-    res.json({ success: true }); 
+    // Mặc định: Coi qrUrl là một đường link ảnh -> lưu vào object data
+    let qrData = { qrUrl: qrUrl, amount: amount };
+
+    // Kiểm tra: Nếu qrUrl là chuỗi JSON (cách cũ), thì parse nó ra
+    if (typeof qrUrl === 'string' && qrUrl.trim().startsWith('{')) {
+        try { 
+            const parsed = JSON.parse(qrUrl);
+            qrData = parsed; // Sử dụng object đã parse
+        } catch (e) { 
+            console.log("QR không phải JSON, giữ nguyên dạng Link");
+        }
+    }
+
+    await Notification.create({ 
+        targetUser: studentName, 
+        type: 'tuition', 
+        title: 'Thông báo đóng học phí', 
+        message: `Phí ${parseInt(amount).toLocaleString('vi-VN')} VNĐ`, 
+        data: qrData // Lưu dữ liệu chuẩn để App Member hiển thị
+    }); 
+    
+    io.emit('new_notification', { targetUser: studentName }); 
+    res.json({ success: true, message: "Đã gửi thông báo!" }); 
 });
 
 // 2. API LẤY CHI TIẾT HỌC VIÊN (Để xem lịch sử - Fix lỗi ID số/chuỗi)
