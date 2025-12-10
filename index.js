@@ -55,6 +55,7 @@ const AttendanceLog = mongoose.model('AttendanceLog', new mongoose.Schema({
 // 🔥 API GỬI THÔNG BÁO (ĐÃ FIX ĐỂ CHẤP NHẬN LINK ẢNH TRỰC TIẾP)
 // clb-backend/index.js
 
+// 🔥 API GỬI THÔNG BÁO (ĐÃ FIX ĐỂ CHẤP NHẬN LINK ẢNH TRỰC TIẾP)
 app.post('/api/tuition/remind', async (req, res) => { 
     try {
         const { studentName, qrUrl, amount } = req.body; 
