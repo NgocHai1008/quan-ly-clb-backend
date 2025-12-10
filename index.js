@@ -52,16 +52,34 @@ const AttendanceLog = mongoose.model('AttendanceLog', new mongoose.Schema({
 
 // clb-backend/index.js
 
-const Notification = mongoose.model('Notification', new mongoose.Schema({
-  targetUser: String, 
-  type: String, 
-  title: String, 
-  message: String, 
-  // 🔥 DÙNG Mixed ĐỂ CHẤP NHẬN MỌI KIỂU DỮ LIỆU (QUAN TRỌNG)
-  data: { type: mongoose.Schema.Types.Mixed, default: {} }, 
-  isRead: { type: Boolean, default: false }, 
-  createdAt: { type: Date, default: Date.now }
-}));
+app.post('/api/tuition/remind', async (req, res) => { 
+    try {
+        const { studentName, qrUrl, amount } = req.body; 
+        
+        console.log(`🔔 Gửi thông báo cho: ${studentName}`);
+        console.log(`🔗 Link QR: ${qrUrl}`);
+
+        // FIX: Lưu trực tiếp qrUrl vào data, KHÔNG dùng JSON.parse
+        const notificationData = { 
+            qrUrl: qrUrl, 
+            amount: amount 
+        };
+
+        await Notification.create({ 
+            targetUser: studentName, 
+            type: 'tuition', 
+            title: 'Thông báo đóng học phí', 
+            message: `Phí ${parseInt(amount).toLocaleString('vi-VN')} VNĐ`, 
+            data: notificationData // Lưu object này vào DB
+        }); 
+        
+        io.emit('new_notification', { targetUser: studentName }); 
+        res.json({ success: true, message: "Đã gửi thông báo!" }); 
+    } catch (e) {
+        console.error("Lỗi gửi:", e);
+        res.status(500).json({ success: false });
+    }
+});
 
 const Event = mongoose.model('Event', new mongoose.Schema({
   title: String, date: String, time: String, location: String, content: String
