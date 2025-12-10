@@ -145,36 +145,6 @@ app.post('/api/admin/import-members', async (req, res) => {
 // 🔥 API MỚI: LẤY CHI TIẾT HỌC VIÊN THEO ID (Để xem lịch sử đóng tiền)
 
 
-app.get('/api/students/:id', async (req, res) => {
-    try {
-        const reqId = req.params.id;
-        console.log(`🔍 Đang tìm học viên với ID: ${reqId}`);
-
-        // 1. Thử tìm theo ID dạng Số (Number)
-        let s = await Student.findOne({ id: parseInt(reqId) });
-
-        // 2. Nếu không thấy, thử tìm theo ID dạng Chuỗi (String) - Đề phòng dữ liệu cũ
-        if (!s) {
-            console.log(`⚠️ Không tìm thấy theo dạng Số, đang thử tìm dạng Chuỗi...`);
-            s = await Student.findOne({ id: reqId });
-        }
-
-        // 3. Nếu vẫn không thấy, trả về dữ liệu rỗng an toàn (Không báo lỗi 500)
-        if (!s) {
-            console.log(`❌ Không tìm thấy học viên nào có ID: ${reqId} trong bảng Student.`);
-            // Trả về object rỗng có mảng tuitionPaidMonths để Frontend không bị crash
-            return res.json({ id: reqId, name: "Không tồn tại", tuitionPaidMonths: [] });
-        }
-
-        console.log(`✅ Đã tìm thấy: ${s.name} - Số tháng đã đóng: ${s.tuitionPaidMonths?.length || 0}`);
-        res.json(s);
-
-    } catch (e) { 
-        console.error("🔥 Lỗi CRITICAL tại API /students/:id :", e);
-        // Trả về rỗng để App không bị treo
-        res.json({ tuitionPaidMonths: [] }); 
-    }
-});
 
 // --- CÁC API KHÁC (GIỮ NGUYÊN) ---
 app.get('/api/chat', async (req, res) => res.json(await Message.find().sort({ createdAt: 1 })));
@@ -185,8 +155,31 @@ app.post('/api/posts/:id/like', async (req, res) => { await Post.updateOne({ id:
 app.post('/api/posts/:id/comment', async (req, res) => { const p = await Post.findOne({ id: req.params.id }); if(p){ p.comments++; p.commentList.push(req.body); await p.save(); res.json({success:true, ...p._doc}); } else res.status(404).json({}); });
 app.post('/api/login', async (req, res) => { const user = await User.findOne({ username: req.body.username, password: req.body.password }); if (!user) return res.status(401).json({ success: false, message: 'Sai thông tin' }); if (user.status === 'pending') return res.status(403).json({ success: false, message: 'Chờ duyệt' }); res.json({ success: true, user: { ...user._doc, password: '' } }); });
 app.post('/api/register', async (req, res) => { if (await User.findOne({ username: req.body.username })) return res.status(400).json({ success: false, message: 'Trùng user' }); await User.create({ ...req.body, status: req.body.role === 'coach' ? 'pending' : 'active', avatar: `https://i.pravatar.cc/100?img=${Math.floor(Math.random() * 70)}` }); if (req.body.role === 'member') await Student.create({ id: Date.now(), name: req.body.name, tuitionPaidMonths: [] }); res.json({ success: true, message: 'Đăng ký thành công' }); });
-app.post('/api/tuition', async (req, res) => { const { id, month } = req.body; if (!month) return res.status(400).json({ success: false, message: 'Thiếu thông tin tháng.' }); await Student.updateOne({ id: id }, { $addToSet: { tuitionPaidMonths: month } }); res.json({ success: true }); });
-app.post('/api/tuition/remind', async (req, res) => { 
+// 1. API THU TIỀN (Chỉ thêm tháng vào mảng, không trùng lặp)
+app.post('/api/tuition', async (req, res) => { 
+    const { id, month } = req.body; 
+    if (!month) return res.status(400).json({ success: false, message: 'Thiếu thông tin tháng.' });
+    
+    // Dùng $addToSet để không bị trùng tháng nếu lỡ bấm 2 lần
+    await Student.updateOne({ id: id }, { $addToSet: { tuitionPaidMonths: month } }); 
+    res.json({ success: true }); 
+});
+
+// 2. API LẤY CHI TIẾT HỌC VIÊN (Để xem lịch sử - Fix lỗi ID số/chuỗi)
+app.get('/api/students/:id', async (req, res) => {
+    try {
+        const reqId = req.params.id;
+        // Thử tìm theo số
+        let s = await Student.findOne({ id: parseInt(reqId) });
+        // Nếu không thấy, thử tìm theo chuỗi
+        if (!s) s = await Student.findOne({ id: reqId });
+        
+        // Trả về object an toàn
+        res.json(s || { tuitionPaidMonths: [] });
+    } catch (e) { 
+        res.status(500).json({ tuitionPaidMonths: [] }); 
+    }
+});app.post('/api/tuition/remind', async (req, res) => { 
     const { studentName, qrUrl, amount } = req.body; 
     let qrData = null;
     try { qrData = JSON.parse(qrUrl); } catch (e) { qrData = { error: "Invalid QR data format" }; }
