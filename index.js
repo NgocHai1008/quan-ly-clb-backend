@@ -50,12 +50,14 @@ const AttendanceLog = mongoose.model('AttendanceLog', new mongoose.Schema({
   date: String, pin: String, records: [{ id: Number, status: String }]
 }));
 
+// clb-backend/index.js
+
 const Notification = mongoose.model('Notification', new mongoose.Schema({
   targetUser: String, 
   type: String, 
   title: String, 
   message: String, 
-  // 🔥 SỬA DÒNG NÀY: Dùng Mixed để lưu bất cứ cái gì (Chuỗi, Link, Object...)
+  // 🔥 DÙNG Mixed ĐỂ CHẤP NHẬN MỌI KIỂU DỮ LIỆU (QUAN TRỌNG)
   data: { type: mongoose.Schema.Types.Mixed, default: {} }, 
   isRead: { type: Boolean, default: false }, 
   createdAt: { type: Date, default: Date.now }
