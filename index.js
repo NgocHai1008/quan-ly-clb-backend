@@ -143,22 +143,36 @@ app.post('/api/admin/import-members', async (req, res) => {
 
 
 // 🔥 API MỚI: LẤY CHI TIẾT HỌC VIÊN THEO ID (Để xem lịch sử đóng tiền)
+
+
 app.get('/api/students/:id', async (req, res) => {
     try {
-        // Ép kiểu String sang Number để tìm trong DB
-        const studentId = parseInt(req.params.id);
-        
-        if (isNaN(studentId)) {
-            return res.status(400).json({ message: "ID không hợp lệ" });
+        const reqId = req.params.id;
+        console.log(`🔍 Đang tìm học viên với ID: ${reqId}`);
+
+        // 1. Thử tìm theo ID dạng Số (Number)
+        let s = await Student.findOne({ id: parseInt(reqId) });
+
+        // 2. Nếu không thấy, thử tìm theo ID dạng Chuỗi (String) - Đề phòng dữ liệu cũ
+        if (!s) {
+            console.log(`⚠️ Không tìm thấy theo dạng Số, đang thử tìm dạng Chuỗi...`);
+            s = await Student.findOne({ id: reqId });
         }
 
-        const s = await Student.findOne({ id: studentId });
-        
-        // Nếu không tìm thấy, trả về object rỗng để frontend không bị lỗi crash
-        res.json(s || { tuitionPaidMonths: [] });
+        // 3. Nếu vẫn không thấy, trả về dữ liệu rỗng an toàn (Không báo lỗi 500)
+        if (!s) {
+            console.log(`❌ Không tìm thấy học viên nào có ID: ${reqId} trong bảng Student.`);
+            // Trả về object rỗng có mảng tuitionPaidMonths để Frontend không bị crash
+            return res.json({ id: reqId, name: "Không tồn tại", tuitionPaidMonths: [] });
+        }
+
+        console.log(`✅ Đã tìm thấy: ${s.name} - Số tháng đã đóng: ${s.tuitionPaidMonths?.length || 0}`);
+        res.json(s);
+
     } catch (e) { 
-        console.error("Lỗi lấy chi tiết học viên:", e);
-        res.status(500).json({ tuitionPaidMonths: [] }); 
+        console.error("🔥 Lỗi CRITICAL tại API /students/:id :", e);
+        // Trả về rỗng để App không bị treo
+        res.json({ tuitionPaidMonths: [] }); 
     }
 });
 
