@@ -156,14 +156,13 @@ app.post('/api/posts/:id/comment', async (req, res) => { const p = await Post.fi
 app.post('/api/login', async (req, res) => { const user = await User.findOne({ username: req.body.username, password: req.body.password }); if (!user) return res.status(401).json({ success: false, message: 'Sai thông tin' }); if (user.status === 'pending') return res.status(403).json({ success: false, message: 'Chờ duyệt' }); res.json({ success: true, user: { ...user._doc, password: '' } }); });
 app.post('/api/register', async (req, res) => { if (await User.findOne({ username: req.body.username })) return res.status(400).json({ success: false, message: 'Trùng user' }); await User.create({ ...req.body, status: req.body.role === 'coach' ? 'pending' : 'active', avatar: `https://i.pravatar.cc/100?img=${Math.floor(Math.random() * 70)}` }); if (req.body.role === 'member') await Student.create({ id: Date.now(), name: req.body.name, tuitionPaidMonths: [] }); res.json({ success: true, message: 'Đăng ký thành công' }); });
 // 1. API THU TIỀN (Chỉ thêm tháng vào mảng, không trùng lặp)
-// 🔥 API GỬI THÔNG BÁO NHẮC NỢ (ĐÃ FIX LỖI MẤT QR)
 app.post('/api/tuition', async (req, res) => { 
     try {
         const { id, month } = req.body; 
         console.log(`💰 Yêu cầu thu tiền: ID=${id} (${typeof id}), Tháng=${month}`);
 
         if (!id || !month) {
-            return res.status(400).json({ success: false, message: 'Thiếu thông tin.' });
+            return res.status(400).json({ success: false, message: 'Thiếu thông tin ID hoặc Tháng.' });
         }
 
         // 1. Thử cập nhật với ID dạng SỐ (Number)
@@ -172,7 +171,7 @@ app.post('/api/tuition', async (req, res) => {
             { $addToSet: { tuitionPaidMonths: month } }
         );
 
-        // 2. Nếu không tìm thấy ai (matchedCount == 0), thử cập nhật với ID dạng CHUỖI (String)
+        // 2. Nếu không tìm thấy (matchedCount == 0), thử cập nhật với ID dạng CHUỖI (String)
         if (result.matchedCount === 0) {
             console.log(`⚠️ Không tìm thấy ID dạng Số, đang thử ID dạng Chuỗi...`);
             result = await Student.updateOne(
@@ -184,6 +183,10 @@ app.post('/api/tuition', async (req, res) => {
         // Kiểm tra kết quả cuối cùng
         if (result.matchedCount > 0) {
             console.log(`✅ Đã xác nhận thu tiền thành công cho ID: ${id}`);
+            // Kiểm tra xem dữ liệu có thực sự thay đổi không (modifiedCount)
+            if (result.modifiedCount === 0) {
+                 console.log(`ℹ️ Tháng ${month} đã tồn tại trong danh sách của học viên này.`);
+            }
             res.json({ success: true });
         } else {
             console.error(`❌ Không tìm thấy học viên nào có ID: ${id} để thu tiền.`);
@@ -192,7 +195,7 @@ app.post('/api/tuition', async (req, res) => {
 
     } catch (e) {
         console.error("🔥 Lỗi API Thu tiền:", e);
-        res.status(500).json({ success: false, message: 'Lỗi Server.' });
+        res.status(500).json({ success: false, message: 'Lỗi Server: ' + e.message });
     }
 });
 
