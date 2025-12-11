@@ -17,6 +17,7 @@
     "express": "^5.2.1",
     "mongoose": "^9.0.1",
     "socket.io": "^4.8.1",
+    "socket.io-client": "^4.8.1",
     "xlsx": "^0.18.5"
   }
 }
